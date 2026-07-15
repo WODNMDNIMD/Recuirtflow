@@ -192,6 +192,34 @@ export const envSchema = z
       .optional()
       .default("SSO"),
 
+    // RecruitFlow AI MVP (optional)
+    RECRUITFLOW_AI_MODE: emptyToUndefined
+      .pipe(z.enum(['mock', 'provider']))
+      .optional()
+      .default('mock'),
+    RECRUITFLOW_MIN_CONFIDENCE: emptyToUndefined
+      .pipe(z.string().regex(/^(0(\.\d+)?|1(\.0+)?)$/, 'Must be a number between 0 and 1'))
+      .optional()
+      .default('0.80'),
+    WECOM_NOTIFY_ENABLED: z.preprocess(
+      val => val === undefined || val === '' ? false : val === true || val === 'true',
+      z.boolean().default(false),
+    ),
+    WECOM_WEBHOOK_URL: emptyToUndefined.pipe(z.string().url()).optional(),
+    TENCENT_DOCS_MODE: emptyToUndefined
+      .pipe(z.enum(['mock', 'api']))
+      .optional()
+      .default('mock'),
+    TENCENT_DOCS_MOCK_FILE: emptyToUndefined
+      .pipe(z.string().min(1))
+      .optional()
+      .default('./storage/tencent_docs_mock.csv'),
+    TENCENT_DOCS_CLIENT_ID: emptyToUndefined.pipe(z.string().min(1)).optional(),
+    TENCENT_DOCS_CLIENT_SECRET: emptyToUndefined.pipe(z.string().min(1)).optional(),
+    TENCENT_DOCS_ACCESS_TOKEN: emptyToUndefined.pipe(z.string().min(1)).optional(),
+    TENCENT_DOCS_FILE_ID: emptyToUndefined.pipe(z.string().min(1)).optional(),
+    TENCENT_DOCS_SHEET_ID: emptyToUndefined.pipe(z.string().min(1)).optional(),
+
     // ── Stripe Billing (optional) ───────────────────────────
     // When STRIPE_SECRET_KEY is set, self-serve subscription checkout is enabled.
     // All Stripe vars are all-or-none (enforced in superRefine below): leaving
