@@ -22,6 +22,41 @@ export const jobTypeEnum = pgEnum('job_type', ['full_time', 'part_time', 'contra
 export const applicationStatusEnum = pgEnum('application_status', [
   'new', 'screening', 'interview', 'offer', 'hired', 'rejected',
 ])
+export const recruitmentEventTypeEnum = pgEnum('recruitment_event_type', [
+  'resume_parsed',
+  'recommendation_generated',
+  'hr_confirmed',
+  'candidate_created',
+  'application_created',
+  'feedback_parsed',
+  'status_changed',
+  'integration_synced',
+  'integration_failed',
+])
+export const recruitmentEventStatusEnum = pgEnum('recruitment_event_status', [
+  'pending',
+  'confirmed',
+  'failed',
+  'ignored',
+])
+export const recruitmentEventSourceEnum = pgEnum('recruitment_event_source', [
+  'ai',
+  'manual',
+  'system',
+  'wecom',
+  'tencent_docs',
+])
+export const integrationProviderEnum = pgEnum('integration_provider', [
+  'ai_provider',
+  'wecom',
+  'tencent_docs',
+  'system',
+])
+export const integrationLogStatusEnum = pgEnum('integration_log_status', [
+  'pending',
+  'success',
+  'failed',
+])
 export const documentTypeEnum = pgEnum('document_type', ['resume', 'cover_letter', 'other'])
 export const questionTypeEnum = pgEnum('question_type', [
   'short_text', 'long_text', 'single_select', 'multi_select',
@@ -176,6 +211,66 @@ export const application = pgTable('application', {
   index('application_candidate_id_idx').on(t.candidateId),
   index('application_job_id_idx').on(t.jobId),
   uniqueIndex('application_org_candidate_job_idx').on(t.organizationId, t.candidateId, t.jobId),
+]))
+
+/**
+ * RecruitFlow AI event ledger.
+ *
+ * This is the lightweight business-event layer used by intake, confirmation,
+ * feedback parsing and later integration sync modules. Every row is scoped by
+ * organizationId so events never cross tenants, even when linked ATS records
+ * are nullable or deleted.
+ */
+export const recruitmentEvent = pgTable('recruitment_event', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  type: recruitmentEventTypeEnum('type').notNull(),
+  status: recruitmentEventStatusEnum('status').notNull().default('pending'),
+  source: recruitmentEventSourceEnum('source').notNull().default('system'),
+  title: text('title'),
+  candidateId: text('candidate_id').references(() => candidate.id, { onDelete: 'set null' }),
+  jobId: text('job_id').references(() => job.id, { onDelete: 'set null' }),
+  applicationId: text('application_id').references(() => application.id, { onDelete: 'set null' }),
+  actorId: text('actor_id').references(() => user.id, { onDelete: 'set null' }),
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+  confirmedAt: timestamp('confirmed_at'),
+  confirmedById: text('confirmed_by_id').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ([
+  index('recruitment_event_organization_id_idx').on(t.organizationId),
+  index('recruitment_event_type_idx').on(t.organizationId, t.type),
+  index('recruitment_event_status_idx').on(t.organizationId, t.status),
+  index('recruitment_event_candidate_id_idx').on(t.candidateId),
+  index('recruitment_event_job_id_idx').on(t.jobId),
+  index('recruitment_event_application_id_idx').on(t.applicationId),
+  index('recruitment_event_created_at_idx').on(t.organizationId, t.createdAt),
+]))
+
+/**
+ * Integration call log for RecruitFlow modules.
+ *
+ * Stores request/response metadata for external or mock connectors without
+ * coupling the first MVP slice to any specific provider implementation.
+ */
+export const integrationLog = pgTable('integration_log', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  provider: integrationProviderEnum('provider').notNull(),
+  operation: text('operation').notNull(),
+  status: integrationLogStatusEnum('status').notNull().default('pending'),
+  eventId: text('event_id').references(() => recruitmentEvent.id, { onDelete: 'set null' }),
+  externalId: text('external_id'),
+  requestPayload: jsonb('request_payload').$type<Record<string, unknown>>(),
+  responsePayload: jsonb('response_payload').$type<Record<string, unknown>>(),
+  errorMessage: text('error_message'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ([
+  index('integration_log_organization_id_idx').on(t.organizationId),
+  index('integration_log_provider_idx').on(t.organizationId, t.provider),
+  index('integration_log_status_idx').on(t.organizationId, t.status),
+  index('integration_log_event_id_idx').on(t.eventId),
+  index('integration_log_created_at_idx').on(t.organizationId, t.createdAt),
 ]))
 
 /**
@@ -858,6 +953,7 @@ export const onboardingSurveyResponseRelations = relations(onboardingSurveyRespo
 export const jobRelations = relations(job, ({ one, many }) => ({
   organization: one(organization, { fields: [job.organizationId], references: [organization.id] }),
   applications: many(application),
+  recruitmentEvents: many(recruitmentEvent),
   questions: many(jobQuestion),
   scoringCriteria: many(scoringCriterion),
   trackingLinks: many(trackingLink),
@@ -867,6 +963,7 @@ export const candidateRelations = relations(candidate, ({ one, many }) => ({
   organization: one(organization, { fields: [candidate.organizationId], references: [organization.id] }),
   applications: many(application),
   documents: many(document),
+  recruitmentEvents: many(recruitmentEvent),
 }))
 
 export const applicationRelations = relations(application, ({ one, many }) => ({
@@ -877,7 +974,21 @@ export const applicationRelations = relations(application, ({ one, many }) => ({
   interviews: many(interview),
   criterionScores: many(criterionScore),
   analysisRuns: many(analysisRun),
+  recruitmentEvents: many(recruitmentEvent),
   source: one(applicationSource),
+}))
+
+export const recruitmentEventRelations = relations(recruitmentEvent, ({ one, many }) => ({
+  organization: one(organization, { fields: [recruitmentEvent.organizationId], references: [organization.id] }),
+  candidate: one(candidate, { fields: [recruitmentEvent.candidateId], references: [candidate.id] }),
+  job: one(job, { fields: [recruitmentEvent.jobId], references: [job.id] }),
+  application: one(application, { fields: [recruitmentEvent.applicationId], references: [application.id] }),
+  integrationLogs: many(integrationLog),
+}))
+
+export const integrationLogRelations = relations(integrationLog, ({ one }) => ({
+  organization: one(organization, { fields: [integrationLog.organizationId], references: [organization.id] }),
+  event: one(recruitmentEvent, { fields: [integrationLog.eventId], references: [recruitmentEvent.id] }),
 }))
 
 export const documentRelations = relations(document, ({ one }) => ({
