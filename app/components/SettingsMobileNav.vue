@@ -5,6 +5,7 @@ import {
 
 const route = useRoute()
 const localePath = useLocalePath()
+const showLegacyNavigation = useFeatureFlagEnabled('reqcore-legacy-navigation')
 
 const settingsNav = [
   {
@@ -18,12 +19,14 @@ const settingsNav = [
     to: '/dashboard/settings/localization',
     icon: Globe,
     exact: true,
+    legacy: true,
   },
   {
     label: 'Career Page',
     to: '/dashboard/settings/career-page',
     icon: Globe2,
     exact: true,
+    legacy: true,
   },
   {
     label: 'Members',
@@ -36,12 +39,14 @@ const settingsNav = [
     to: '/dashboard/settings/billing',
     icon: CreditCard,
     exact: true,
+    legacy: true,
   },
   {
     label: 'Integrations',
     to: '/dashboard/settings/integrations',
     icon: Plug,
     exact: true,
+    legacy: true,
   },
   {
     label: 'AI',
@@ -54,6 +59,7 @@ const settingsNav = [
     to: '/dashboard/settings/sso',
     icon: ShieldCheck,
     exact: true,
+    legacy: true,
   },
   {
     label: 'Account',
@@ -62,6 +68,10 @@ const settingsNav = [
     exact: true,
   },
 ]
+
+const visibleSettingsNav = computed(() =>
+  settingsNav.filter((item) => showLegacyNavigation.value || !item.legacy),
+)
 
 function isActive(to: string, exact: boolean) {
   const localizedTo = localePath(to)
@@ -89,7 +99,7 @@ function isActive(to: string, exact: boolean) {
     <!-- Scrollable tabs -->
     <nav class="flex overflow-x-auto px-3 gap-1 pb-2 scrollbar-none">
       <NuxtLink
-        v-for="item in settingsNav"
+        v-for="item in visibleSettingsNav"
         :key="item.to"
         :to="$localePath(item.to)"
         class="flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-colors no-underline shrink-0"

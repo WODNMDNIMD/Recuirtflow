@@ -9,6 +9,7 @@ const route = useRoute()
 const localePath = useLocalePath()
 const { t } = useI18n()
 const { hasFeature } = usePlanFeature()
+const showLegacyNavigation = useFeatureFlagEnabled('reqcore-legacy-navigation')
 
 /** Show a lock hint when the org's plan can't use a nav item's feature. */
 function isLocked(feature?: PlanFeature) {
@@ -24,6 +25,7 @@ interface SettingsNavItem {
   badge?: string
   /** When set and the plan isn't entitled, the item shows a lock hint. */
   feature?: PlanFeature
+  legacy?: boolean
 }
 
 const settingsNav: SettingsNavItem[] = [
@@ -40,6 +42,7 @@ const settingsNav: SettingsNavItem[] = [
     to: '/dashboard/settings/localization',
     icon: Globe,
     exact: true,
+    legacy: true,
   },
   {
     label: 'Career Page',
@@ -48,6 +51,7 @@ const settingsNav: SettingsNavItem[] = [
     icon: Globe2,
     exact: true,
     feature: 'careerPage',
+    legacy: true,
   },
   {
     label: 'Members',
@@ -62,6 +66,7 @@ const settingsNav: SettingsNavItem[] = [
     to: '/dashboard/settings/billing',
     icon: CreditCard,
     exact: true,
+    legacy: true,
   },
   {
     label: 'Integrations',
@@ -70,6 +75,7 @@ const settingsNav: SettingsNavItem[] = [
     icon: Plug,
     exact: true,
     feature: 'calendar',
+    legacy: true,
   },
   {
     label: 'AI Configuration',
@@ -86,6 +92,7 @@ const settingsNav: SettingsNavItem[] = [
     icon: ShieldAlert,
     exact: true,
     feature: 'retention',
+    legacy: true,
   },
   {
     label: 'Single Sign-On',
@@ -95,6 +102,7 @@ const settingsNav: SettingsNavItem[] = [
     exact: true,
     badge: 'Beta',
     feature: 'sso',
+    legacy: true,
   },
   {
     label: 'Account',
@@ -104,6 +112,10 @@ const settingsNav: SettingsNavItem[] = [
     exact: true,
   },
 ]
+
+const visibleSettingsNav = computed(() =>
+  settingsNav.filter((item) => showLegacyNavigation.value || !item.legacy),
+)
 
 function isActive(to: string, exact: boolean) {
   const localizedTo = localePath(to)
@@ -139,7 +151,7 @@ function isActive(to: string, exact: boolean) {
     <nav class="flex-1 px-3 pb-5">
       <div class="flex flex-col gap-0.5">
         <NuxtLink
-          v-for="item in settingsNav"
+          v-for="item in visibleSettingsNav"
           :key="item.to"
           :to="$localePath(item.to)"
           class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all no-underline"

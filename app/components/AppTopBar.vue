@@ -7,6 +7,7 @@ import {
   LayoutDashboard, Calendar, ArrowUpCircle,
   Sparkles, Radio, History,
   MessageCircle, Languages, Lock,
+  Inbox,
 } from 'lucide-vue-next'
 import type { PlanFeature } from '~~/shared/billing'
 
@@ -101,18 +102,26 @@ const { data: feedbackConfig } = useFetch('/api/feedback/config', {
 const isFeedbackEnabled = computed(() => feedbackConfig.value?.enabled === true)
 
 const showChatbot = useFeatureFlagEnabled('chatbot-experience')
+const showLegacyNavigation = useFeatureFlagEnabled('reqcore-legacy-navigation')
 
 const jobTabs = computed(() => {
   if (!activeJobId.value) return []
   const base = `/dashboard/jobs/${activeJobId.value}`
-  return [
+  const tabs = [
     { label: 'Pipeline', to: base, icon: Kanban, exact: true },
     { label: 'Table', to: `${base}/candidates`, icon: Table2, exact: true },
-    { label: 'Application Form', to: `${base}/application-form`, icon: FileText, exact: true },
-    { label: 'Source Tracking', to: `${base}/source-tracking`, icon: Radio, exact: true },
-    { label: 'AI Analysis', to: `${base}/ai-analysis`, icon: Sparkles, exact: true },
     { label: 'Settings', to: `${base}/settings`, icon: Settings, exact: true },
   ]
+
+  if (showLegacyNavigation.value) {
+    tabs.splice(2, 0,
+      { label: 'Application Form', to: `${base}/application-form`, icon: FileText, exact: true },
+      { label: 'Source Tracking', to: `${base}/source-tracking`, icon: Radio, exact: true },
+      { label: 'AI Analysis', to: `${base}/ai-analysis`, icon: Sparkles, exact: true },
+    )
+  }
+
+  return tabs
 })
 
 // ─────────────────────────────────────────────
@@ -120,15 +129,20 @@ const jobTabs = computed(() => {
 // ─────────────────────────────────────────────
 
 const mainNav: Array<{ label: string; to: string; icon: typeof Briefcase; exact: boolean; comingSoon?: boolean; feature?: PlanFeature }> = [
-  { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard, exact: true },
-  { label: 'Jobs', to: '/dashboard/jobs', icon: Briefcase, exact: false },
+  { label: 'AI Intake', to: '/dashboard/ai-intake', icon: Sparkles, exact: true },
+  { label: 'Feedback Inbox', to: '/dashboard/feedback-inbox', icon: Inbox, exact: true },
   { label: 'Candidates', to: '/dashboard/candidates', icon: Users, exact: false },
-  { label: 'Applications', to: '/dashboard/applications', icon: FileText, exact: false },
+  { label: 'Jobs', to: '/dashboard/jobs', icon: Briefcase, exact: false },
+  { label: 'Pipeline', to: '/dashboard/applications', icon: Kanban, exact: false },
+  { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard, exact: true },
+  { label: 'Settings', to: '/dashboard/settings', icon: Settings, exact: false },
+]
+
+const legacyNav: Array<{ label: string; to: string; icon: typeof Briefcase; exact: boolean; comingSoon?: boolean; feature?: PlanFeature }> = [
   { label: 'Interviews', to: '/dashboard/interviews', icon: Calendar, exact: false },
   { label: 'Timeline', to: '/dashboard/timeline', icon: History, exact: true, feature: 'activityTimeline' },
   { label: 'Source Tracking', to: '/dashboard/source-tracking', icon: Radio, exact: true, feature: 'sourceAnalytics' },
   { label: 'AI Analysis', to: '/dashboard/ai-analysis', icon: Sparkles, exact: true, feature: 'aiAnalytics' },
-  { label: 'Settings', to: '/dashboard/settings', icon: Settings, exact: false },
 ]
 
 // Show a lock affordance on nav items the org's plan can't access yet. The
@@ -149,7 +163,7 @@ const flaggedNav = computed(() => {
 })
 
 const navItems = computed(() => {
-  const merged = [...mainNav]
+  const merged = showLegacyNavigation.value ? [...mainNav, ...legacyNav] : [...mainNav]
   for (const item of flaggedNav.value) {
     const idx = merged.findIndex((n) => n.label === item.afterLabel)
     const insertAt = idx >= 0 ? idx + 1 : merged.length
@@ -166,7 +180,7 @@ function isActiveRoute(to: string, exact: boolean) {
   return route.path === localizedTo || route.path.startsWith(`${localizedTo}/`)
 }
 
-const primaryNavLabels = ['Dashboard', 'Jobs', 'Candidates', 'Applications', 'Interviews', 'Settings']
+const primaryNavLabels = ['AI Intake', 'Feedback Inbox', 'Candidates', 'Jobs', 'Pipeline', 'Dashboard', 'Settings']
 const primaryNavItems = computed(() => navItems.value.filter(i => primaryNavLabels.includes(i.label)))
 const moreNavItems = computed(() => navItems.value.filter(i => !primaryNavLabels.includes(i.label)))
 
@@ -220,8 +234,8 @@ onUnmounted(() => {
             :href="useRuntimeConfig().public.marketingUrl"
             class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg no-underline hover:bg-surface-100/60 dark:hover:bg-surface-800/60 transition-colors mr-1 lg:mr-4"
           >
-            <img src="/eagle-mascot-logo.png" alt="Reqcore mascot" class="size-7 shrink-0 object-contain" />
-            <span class="text-[15px] font-bold text-surface-900 dark:text-surface-100 hidden sm:block tracking-tight">Reqcore</span>
+            <img src="/eagle-mascot-logo.png" alt="RecruitFlow" class="size-7 shrink-0 object-contain" />
+            <span class="text-[15px] font-bold text-surface-900 dark:text-surface-100 hidden sm:block tracking-tight">RecruitFlow</span>
           </a>
 
           <!-- Desktop nav links -->

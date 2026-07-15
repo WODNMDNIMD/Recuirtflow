@@ -4,6 +4,7 @@ import {
   ArrowRight, TrendingUp, Clock, AlertCircle,
   Eye, UserPlus, ExternalLink,
   LayoutDashboard, Zap, Sparkles,
+  Inbox,
 } from 'lucide-vue-next'
 
 definePageMeta({
@@ -36,6 +37,22 @@ const {
   error,
   refresh,
 } = useDashboard()
+
+const { data: recruitflowMetrics } = useFetch('/api/recruitflow/metrics', {
+  key: 'recruitflow-dashboard-metrics',
+  headers: useRequestHeaders(['cookie']),
+})
+
+const recruitflowFunnel = computed(() => recruitflowMetrics.value?.funnel ?? [])
+const recruitflowJobs = computed(() => recruitflowMetrics.value?.jobs ?? [])
+const overdueItems = computed(() => recruitflowMetrics.value?.overdue?.items ?? [])
+const overdueTotal = computed(() => recruitflowMetrics.value?.overdue?.total ?? 0)
+const last7Days = computed(() => recruitflowMetrics.value?.last7Days ?? {
+  candidates: 0,
+  applications: 0,
+  jobs: 0,
+  activity: [],
+})
 
 // ─────────────────────────────────────────────
 // Upcoming interviews (next 7 days)
@@ -243,6 +260,140 @@ const isEmpty = computed(() =>
     <!-- ─── Dashboard content ─── -->
     <template v-else>
       <!-- ─── Header ─── -->
+      <div class="mb-6 sm:mb-8">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase text-surface-400 dark:text-surface-500">
+              RecruitFlow command center
+            </p>
+            <h1 class="mt-1 text-2xl font-semibold tracking-tight text-surface-950 dark:text-surface-50">
+              {{ activeOrg?.name ?? 'Hiring workspace' }}
+            </h1>
+            <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">
+              Intake, feedback, pipeline movement, and urgent follow-up in one operating view.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <NuxtLink
+              :to="localePath('/dashboard/ai-intake')"
+              class="inline-flex items-center gap-2 rounded-lg bg-surface-950 px-3 py-2 text-xs font-semibold text-white no-underline transition-colors hover:bg-surface-800 dark:bg-white dark:text-surface-950 dark:hover:bg-surface-200"
+            >
+              <Sparkles class="size-3.5" />
+              AI Intake
+            </NuxtLink>
+            <NuxtLink
+              :to="localePath('/dashboard/feedback-inbox')"
+              class="inline-flex items-center gap-2 rounded-lg border border-surface-200 bg-white px-3 py-2 text-xs font-semibold text-surface-700 no-underline transition-colors hover:bg-surface-50 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-200 dark:hover:bg-surface-800"
+            >
+              <Inbox class="size-3.5" />
+              Feedback Inbox
+            </NuxtLink>
+          </div>
+        </div>
+
+        <div class="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
+          <div class="rounded-lg border border-surface-200 bg-white p-4 shadow-xs dark:border-surface-800 dark:bg-surface-900">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Recruiting funnel</h2>
+                <p class="mt-0.5 text-xs text-surface-400 dark:text-surface-500">Current applications by stage</p>
+              </div>
+              <span class="rounded-full bg-surface-100 px-2 py-1 text-[11px] font-medium text-surface-500 dark:bg-surface-800 dark:text-surface-400">
+                Core table metrics
+              </span>
+            </div>
+
+            <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              <NuxtLink
+                v-for="stage in recruitflowFunnel"
+                :key="stage.key"
+                :to="localePath({ path: '/dashboard/applications', query: { status: stage.key } })"
+                class="rounded-lg border border-surface-100 bg-surface-50 px-3 py-3 no-underline transition-colors hover:border-brand-200 hover:bg-brand-50 dark:border-surface-800 dark:bg-surface-950 dark:hover:border-brand-900 dark:hover:bg-brand-950/30"
+              >
+                <div class="text-xl font-semibold tabular-nums text-surface-950 dark:text-surface-50">
+                  {{ stage.count }}
+                </div>
+                <div class="mt-1 truncate text-xs font-medium text-surface-500 dark:text-surface-400">
+                  {{ stage.label }}
+                </div>
+              </NuxtLink>
+            </div>
+
+            <div v-if="recruitflowJobs.length" class="mt-4 space-y-2">
+              <div
+                v-for="item in recruitflowJobs.slice(0, 3)"
+                :key="item.id"
+                class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg bg-surface-50 px-3 py-2 dark:bg-surface-950"
+              >
+                <div class="min-w-0">
+                  <div class="truncate text-xs font-semibold text-surface-800 dark:text-surface-200">
+                    {{ item.title }}
+                  </div>
+                  <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-200 dark:bg-surface-800">
+                    <div
+                      class="h-full rounded-full bg-brand-500"
+                      :style="{ width: `${item.total > 0 ? Math.max(8, (item.active / item.total) * 100) : 0}%` }"
+                    />
+                  </div>
+                </div>
+                <div class="text-right text-xs text-surface-500 dark:text-surface-400">
+                  <span class="font-semibold tabular-nums text-surface-900 dark:text-surface-100">{{ item.active }}</span>
+                  active
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            <div class="rounded-lg border border-surface-200 bg-white p-4 shadow-xs dark:border-surface-800 dark:bg-surface-900">
+              <div class="flex items-center justify-between gap-2">
+                <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Overdue follow-up</h2>
+                <span
+                  class="rounded-full px-2 py-1 text-[11px] font-semibold"
+                  :class="overdueTotal > 0 ? 'bg-warning-50 text-warning-700 dark:bg-warning-950/40 dark:text-warning-400' : 'bg-success-50 text-success-700 dark:bg-success-950/40 dark:text-success-400'"
+                >
+                  {{ overdueTotal }}
+                </span>
+              </div>
+              <div v-if="overdueItems.length" class="mt-3 space-y-2">
+                <NuxtLink
+                  v-for="item in overdueItems.slice(0, 3)"
+                  :key="item.id"
+                  :to="localePath(`/dashboard/applications/${item.id}`)"
+                  class="block rounded-lg bg-surface-50 px-3 py-2 no-underline hover:bg-surface-100 dark:bg-surface-950 dark:hover:bg-surface-800"
+                >
+                  <div class="truncate text-xs font-semibold text-surface-800 dark:text-surface-200">{{ item.candidateName }}</div>
+                  <div class="mt-0.5 flex items-center justify-between gap-2 text-[11px] text-surface-500 dark:text-surface-400">
+                    <span class="truncate">{{ item.jobTitle }}</span>
+                    <span class="shrink-0 tabular-nums">{{ item.daysOpen }}d</span>
+                  </div>
+                </NuxtLink>
+              </div>
+              <p v-else class="mt-3 text-xs text-surface-500 dark:text-surface-400">
+                No applications have been waiting more than three days.
+              </p>
+            </div>
+
+            <div class="rounded-lg border border-surface-200 bg-white p-4 shadow-xs dark:border-surface-800 dark:bg-surface-900">
+              <h2 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Last 7 days</h2>
+              <div class="mt-3 grid grid-cols-3 gap-2">
+                <div class="rounded-lg bg-surface-50 px-2 py-2 text-center dark:bg-surface-950">
+                  <div class="text-lg font-semibold tabular-nums text-surface-950 dark:text-surface-50">{{ last7Days.candidates }}</div>
+                  <div class="text-[10px] font-medium text-surface-400 dark:text-surface-500">Candidates</div>
+                </div>
+                <div class="rounded-lg bg-surface-50 px-2 py-2 text-center dark:bg-surface-950">
+                  <div class="text-lg font-semibold tabular-nums text-surface-950 dark:text-surface-50">{{ last7Days.applications }}</div>
+                  <div class="text-[10px] font-medium text-surface-400 dark:text-surface-500">Applications</div>
+                </div>
+                <div class="rounded-lg bg-surface-50 px-2 py-2 text-center dark:bg-surface-950">
+                  <div class="text-lg font-semibold tabular-nums text-surface-950 dark:text-surface-50">{{ last7Days.jobs }}</div>
+                  <div class="text-[10px] font-medium text-surface-400 dark:text-surface-500">Jobs</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- ─── Stat cards ─── -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-10">

@@ -53,6 +53,14 @@ export const FEATURE_FLAGS = {
     defaultValue: false,
     description: 'New AI chatbot experience in the dashboard.',
   },
+  /**
+   * Restores the broader upstream Reqcore navigation during QA or when the
+   * product is run outside the RecruitFlow MVP demo path.
+   */
+  'reqcore-legacy-navigation': {
+    defaultValue: false,
+    description: 'Show broader Reqcore navigation entries outside the RecruitFlow MVP flow.',
+  },
 } as const satisfies Record<string, FeatureFlagDefinition>
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS

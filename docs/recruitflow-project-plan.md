@@ -75,3 +75,11 @@ server/utils/recruitflow/*
 8. 新增反馈收件箱和反馈解析；
 9. 新增 RecruitFlow metrics。
 
+## 模块 05：Dashboard Polish
+
+- 顶部导航默认收敛为 RecruitFlow MVP 主线：AI Intake、Feedback Inbox、Candidates、Jobs、Pipeline、Dashboard、Settings。
+- Billing、Career Page、Source Tracking、Chatbot、SSO、多语言运营等 Reqcore 原入口不删除，默认通过 `reqcore-legacy-navigation` feature flag 隐藏，减少后续合并冲突。
+- 新增 `server/api/recruitflow/metrics.get.ts`，当前从 Reqcore 核心表 `job`、`candidate`、`application`、`activity_log` 读取漏斗、岗位人数、超时待办和近 7 天动态。
+- `recruitment_event` 表合并后，优先替换 metrics API 中 recent activity 查询，保持前端响应结构稳定。
+- 3 分钟答辩脚本见 `docs/demo-script.md`。
+
